@@ -1,0 +1,6 @@
+numpy==2.4.4
+opencv-python==4.13.0.92
+opencv-python-headless==4.13.0.92
+opencv-contrib-python==4.13.0.92
+ultralytics==8.4.48
+supervision==0.28.0

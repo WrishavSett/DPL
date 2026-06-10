@@ -15,6 +15,9 @@ Usage:
     python rtsp_mot_pipeline.py --source 0
 """
 
+
+# imports
+
 import argparse
 import time
 
@@ -22,6 +25,7 @@ import cv2
 import numpy as np
 import supervision as sv
 from ultralytics import YOLO
+
 
 # Configuration
 

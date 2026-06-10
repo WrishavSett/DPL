@@ -28,7 +28,7 @@ from ultralytics import YOLO
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_PATH         = "yolo11n.pt"       # any Ultralytics-compatible weight
+MODEL_PATH         = "yolo26n.pt"       # any Ultralytics-compatible weight
 TARGET_W, TARGET_H = 640, 480           # preprocessing resolution
 TARGET_FPS         = 24                 # throttled processing rate
 FRAME_INTERVAL     = 1.0 / TARGET_FPS   # seconds between processed frames

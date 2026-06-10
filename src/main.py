@@ -1,9 +1,8 @@
 """
 RTSP Multi-Object Tracking Pipeline
-====================================
+
 Stack : Python · OpenCV · Ultralytics (YOLO11n) · Supervision (ByteTrack)
-Pipeline: Initialize stream → Load model → Init tracker → Read frames
-          → Throttle → Preprocess → Infer → Track → Visualize
+Pipeline: Initialize stream > Load model > Init tracker > Read frames > Throttle > Preprocess > Infer > Track > Visualize
 
 Usage:
     # RTSP stream
@@ -24,9 +23,7 @@ import numpy as np
 import supervision as sv
 from ultralytics import YOLO
 
-# ---------------------------------------------------------------------------
 # Configuration
-# ---------------------------------------------------------------------------
 
 MODEL_PATH         = "yolo26n.pt"       # any Ultralytics-compatible weight
 TARGET_W, TARGET_H = 640, 480           # preprocessing resolution
@@ -38,17 +35,14 @@ DEVICE             = "cpu"              # "cpu" or "cuda"
 LOST_TRACK_BUFFER  = 30                 # frames to keep a lost track alive
 
 
-# ---------------------------------------------------------------------------
 # 1. Initialize Stream
-# ---------------------------------------------------------------------------
 
 def init_stream(source: str | int) -> cv2.VideoCapture:
     """
     Open an RTSP stream, local video file, or webcam.
-    For RTSP sources, forces the FFmpeg backend and minimises buffer size
-    so we always decode the latest frame.
+    For RTSP sources, forces the FFmpeg backend and minimises buffer size so we always decode the latest frame.
     """
-    print(f"[STREAM] Connecting → {source}")
+    print(f"[STREAM] Connecting > {source}")
 
     is_rtsp = isinstance(source, str) and source.startswith("rtsp")
     cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG) if is_rtsp \
@@ -62,9 +56,7 @@ def init_stream(source: str | int) -> cv2.VideoCapture:
     return cap
 
 
-# ---------------------------------------------------------------------------
 # 2. Load Model
-# ---------------------------------------------------------------------------
 
 def load_model(model_path: str, device: str) -> YOLO:
     """Load a YOLO model and move it to the target device."""
@@ -74,10 +66,7 @@ def load_model(model_path: str, device: str) -> YOLO:
     print(f"[MODEL ] Ready | classes: {len(model.names)}")
     return model
 
-
-# ---------------------------------------------------------------------------
 # 3. Initialize ByteTrack Tracker + Supervision Annotators
-# ---------------------------------------------------------------------------
 
 def init_tracker_and_annotators(
     conf_threshold: float,
@@ -104,9 +93,7 @@ def init_tracker_and_annotators(
     return tracker, box_annotator, label_annotator
 
 
-# ---------------------------------------------------------------------------
 # 4 & 5. Read + Preprocess Frames
-# ---------------------------------------------------------------------------
 
 def read_frame(cap: cv2.VideoCapture) -> np.ndarray | None:
     """Grab the latest frame; return None on failure."""
@@ -119,9 +106,7 @@ def preprocess(frame: np.ndarray, width: int, height: int) -> np.ndarray:
     return cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
 
 
-# ---------------------------------------------------------------------------
 # 6. Inference
-# ---------------------------------------------------------------------------
 
 def run_inference(
     model: YOLO,
@@ -141,18 +126,14 @@ def run_inference(
     return sv.Detections.from_ultralytics(results)
 
 
-# ---------------------------------------------------------------------------
 # 7. Object Tracking
-# ---------------------------------------------------------------------------
 
 def run_tracking(tracker: sv.ByteTrack, detections: sv.Detections) -> sv.Detections:
     """Update ByteTrack with current-frame detections."""
     return tracker.update_with_detections(detections)
 
 
-# ---------------------------------------------------------------------------
 # 8. Visualize
-# ---------------------------------------------------------------------------
 
 def build_labels(tracked: sv.Detections, model: YOLO) -> list[str]:
     """
@@ -195,12 +176,10 @@ def annotate_frame(
     return annotated
 
 
-# ---------------------------------------------------------------------------
 # Main Pipeline Loop
-# ---------------------------------------------------------------------------
 
 def main(source: str | int) -> None:
-    # ── Setup ────────────────────────────────────────────────────────────────
+    # Setup
     cap                         = init_stream(source)
     model                       = load_model(MODEL_PATH, DEVICE)
     tracker, box_ann, label_ann = init_tracker_and_annotators(
@@ -209,14 +188,14 @@ def main(source: str | int) -> None:
         frame_rate=TARGET_FPS,
     )
 
-    last_proc_time = 0.0        # wall-clock time of last processed frame
+    last_proc_time = 0.0 # wall-clock time of last processed frame
     fps_monitor    = sv.FPSMonitor()
 
     print("\n[PIPELINE] Running — press Q to quit\n")
 
     try:
         while True:
-            # ── 4. Read frame ────────────────────────────────────────────────
+            # 4. Read frame
             frame = read_frame(cap)
             if frame is None:
                 print("[STREAM] Frame read failed — attempting reconnect ...")
@@ -225,24 +204,24 @@ def main(source: str | int) -> None:
                 cap = init_stream(source)
                 continue
 
-            # ── 5a. Throttle: wall-clock time gate ───────────────────────────
+            # 5a. Throttle: wall-clock time gate
             now = time.perf_counter()
             if (now - last_proc_time) < FRAME_INTERVAL:
                 continue
             last_proc_time = now
 
-            # ── 5b. Preprocess ───────────────────────────────────────────────
+            # 5b. Preprocess
             processed = preprocess(frame, TARGET_W, TARGET_H)
 
-            # ── 6. Inference ─────────────────────────────────────────────────
+            # 6. Inference
             detections = run_inference(
                 model, processed, CONF_THRESHOLD, IOU_THRESHOLD, DEVICE
             )
 
-            # ── 7. Tracking ──────────────────────────────────────────────────
+            # 7. Tracking
             tracked = run_tracking(tracker, detections)
 
-            # ── 8. Visualize ─────────────────────────────────────────────────
+            # 8. Visualize
             fps_monitor.tick()
             labels    = build_labels(tracked, model)
             annotated = annotate_frame(processed, tracked, labels, box_ann, label_ann, fps_monitor.fps)
@@ -259,9 +238,7 @@ def main(source: str | int) -> None:
         print("[PIPELINE] Stopped.")
 
 
-# ---------------------------------------------------------------------------
 # Entry Point
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RTSP + YOLO11n + ByteTrack MOT pipeline")

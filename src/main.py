@@ -31,8 +31,6 @@ from ultralytics import YOLO
 
 MODEL_PATH         = "yolo26n.pt"       # any Ultralytics-compatible weight
 TARGET_W, TARGET_H = 640, 480           # preprocessing resolution
-TARGET_FPS         = 24                 # throttled processing rate
-FRAME_INTERVAL     = 1.0 / TARGET_FPS   # seconds between processed frames
 CONF_THRESHOLD     = 0.5
 IOU_THRESHOLD      = 0.5
 DEVICE             = "cpu"              # "cpu" or "cuda"
@@ -56,7 +54,7 @@ def init_stream(source: str | int) -> cv2.VideoCapture:
         raise RuntimeError(f"Cannot open stream: {source}")
 
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    print(f"[STREAM] Connected")
+    print("[STREAM] Connected")
     return cap
 
 
@@ -75,7 +73,6 @@ def load_model(model_path: str, device: str) -> YOLO:
 def init_tracker_and_annotators(
     conf_threshold: float,
     lost_track_buffer: int,
-    frame_rate: int,
 ):
     """
     ByteTrack via Supervision.
@@ -87,7 +84,6 @@ def init_tracker_and_annotators(
         track_activation_threshold=conf_threshold,
         lost_track_buffer=lost_track_buffer,
         minimum_matching_threshold=0.8,
-        frame_rate=frame_rate,
     )
 
     box_annotator   = sv.BoxAnnotator(thickness=2)
@@ -155,12 +151,12 @@ def build_labels(tracked: sv.Detections, model: YOLO) -> list[str]:
 
 
 def annotate_frame(
-    frame: np.ndarray,
-    tracked: sv.Detections,
-    labels: list[str],
-    box_ann: sv.BoxAnnotator,
-    label_ann: sv.LabelAnnotator,
-    fps: float,
+    frame:      np.ndarray,
+    tracked:    sv.Detections,
+    labels:     list[str],
+    box_ann:    sv.BoxAnnotator,
+    label_ann:  sv.LabelAnnotator,
+    fps:        float,
 ) -> np.ndarray:
     """Draw bounding boxes, labels, and a track-count/FPS overlay."""
     annotated = frame.copy()
@@ -189,11 +185,9 @@ def main(source: str | int) -> None:
     tracker, box_ann, label_ann = init_tracker_and_annotators(
         conf_threshold=CONF_THRESHOLD,
         lost_track_buffer=LOST_TRACK_BUFFER,
-        frame_rate=TARGET_FPS,
     )
 
-    last_proc_time = 0.0 # wall-clock time of last processed frame
-    fps_monitor    = sv.FPSMonitor()
+    fps_monitor = sv.FPSMonitor()
 
     print("\n[PIPELINE] Running — press Q to quit\n")
 
@@ -208,13 +202,7 @@ def main(source: str | int) -> None:
                 cap = init_stream(source)
                 continue
 
-            # 5a. Throttle: wall-clock time gate
-            now = time.perf_counter()
-            if (now - last_proc_time) < FRAME_INTERVAL:
-                continue
-            last_proc_time = now
-
-            # 5b. Preprocess
+            # 5. Preprocess
             processed = preprocess(frame, TARGET_W, TARGET_H)
 
             # 6. Inference

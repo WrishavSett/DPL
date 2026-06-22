@@ -1,0 +1,67 @@
+I have attached a Python script for Multi-Object Tracking and Counting.
+
+You may consider this to be a baseline for an AI system I plan on building.
+The Python script is designed to work with only 1 input source (RTSP stream/local file/webcam). It initializes the source, loads a model into the memory, initializes a tracker and counter object, reads and preprocesses frames, performs inference and passes the detections to the tracker object to update its state and uses the tracked objects for counting and reports classwise counts.
+
+My proposed AI system architechture is as such:
+1. A management dashboard with the following:
+   1. Tab 1: Shows per camera information,
+   2. Tab 2: Allows for camera management at runtime (without system restart)- enable/disable camera(s), restart camera(s), add/remove camera(s),
+   3. Tab 3: Visualization of each camera feed (for 4 RTSP streams, a 2x2 window is to be configured with camera_id and classwise_counts displayed on the top left of each camera's visualization),
+   4. Tab 4: Hourly report page where csv files are generated and available to view/download which holds classwise counts of all cameras.
+
+Design choices:
+1. All counts are to be stored in SQLite to survive server restart,
+2. The dashboard is to be coded in HTML, CSS and JS,
+3. Each camera gets a dedicated worker process of my counting code modified to fit the current architechture,
+4. CSV files to be generated based on system time (Report_20260612_120000_125959).
+
+Summary:
+Instead of running `python count.py` for each and every camera, a similar approach is taken via a management dashboard.
+
+Preferred technical stack: Python 3.11.2, SQLite, Ultralytics 8.4.48, Supervision 0.28.0, OpenCV 4.13.0.92, FastAPI 0.136.3 and Uvicorn 0.49.0.
+
+Review my design choices and provide me with a plan of action.
+
+
+###########################################################################
+My proposed AI system architechture is as such:
+1. Producer:
+   1. Initialize N number of RTSP camera streams,
+   2. Capture frames from each camera using a dedicated capture thread with exponential backoff reconnecting logic and also generate detailed metadata per frame per camera,
+   3. Add frames to a per camera shared queue for downstream consumption with their respective metadata,
+2. Consumer-cpu:
+   1. Each camera gets its own worker process - which initializes a model, a tracker and a counter object,
+   2. Consumes frames from the respective camera's shared queue directly,
+   3. Performs detections, tracking and counting,
+   4. Classwise counts are returned per camera,
+3. Dashboard:
+   1. Tab 1: Shows per camera information,
+   2. Tab 2: Allows for camera management at runtime (without system restart)- enable/disable camera(s), restart camera(s), add/remove camera(s),
+   3. Tab 3: Visualization of each camera feed (for 4 RTSP streams, a 2x2 window is to be configured with camera_id and classwise_counts displayed on the top left of each camera's visualization),
+   4. Tab 4: Hourly report page where csv files are generated and available to view/download which holds classwise counts of all cameras.
+
+Design choices:
+1. All counts are to be stored in SQLite to survive server restart,
+2. The dashboard is to be coded in HTML, CSS and JS,
+3. The camera management tab is required so that if a camera fails or if a new camera is to be added or if a camera needs to be replaced, it can all be done without affecting the other camera(s), at runtime,
+4. Capture threads also do - frame dropping (frame_skip of 3 since each camera is configured to capture at 24fps) and preprocessing (resize to 640x480),
+5. CSV files to be generated based on system time (Report_20260612_120000_125959),
+6. Per frame metadata is to hold the following - camera_id, frame_id, capture_timestamp.
+
+Preferred technical stack: Python 3.11.2, SQLite, Ultralytics 8.4.48, Supervision 0.28.0, OpenCV 4.13.0.92, FastAPI 0.136.3 and Uvicorn 0.49.0.
+
+Review my design choices and provide me with a plan of action.
+
+
+###########################################################################
+3. Consumer-gpu:
+   1. Load a shared model into memory (which will be used for batch-processing),
+   2. A batcher collects frames and their respective metadata from all shared queues until either the batch_size or batch_timeout is reached,
+   3. The batched frames are sent to the model for detection,
+   4. After detection, the frames are decoupled using the metadata,
+   5. Tracker and counter objects are initialized per camera so that tracks/counts of 1 camera do not flow into that of another,
+   6. Tracker and counter per camera are created only once, lazily, to ensure that they are persisted and not re-created every batch,
+   6. Classwise counts are returned per camera,
+
+4. Either Consumer-cpu or Consumer-gpu will be used (not both at once) depending on system specifications,

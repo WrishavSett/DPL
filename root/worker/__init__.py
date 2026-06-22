@@ -1,0 +1,1 @@
+"""Per-camera worker process package: vision pipeline, event extraction, annotation."""

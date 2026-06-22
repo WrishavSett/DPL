@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Cameras — Camera Counting Console{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Camera Status</h1>
+    <div class="sub">Live classwise counts per camera, updated every few seconds.</div>
+  </div>
+</div>
+
+<div id="camera-cards" class="card-grid">
+  <div class="empty-state">Loading cameras…</div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', path='js/tab1_cameras.js') }}"></script>
+{% endblock %}

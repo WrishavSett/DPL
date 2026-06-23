@@ -1,1 +1,0 @@
-"""FastAPI routers: cameras (Tab 1/2), streams (Tab 3), reports (Tab 4), websocket."""
